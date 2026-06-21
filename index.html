@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今日日程 · 哈尔的移动城堡</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Playfair+Display:ital,wght@0,500;0,700;1,500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --cream: #FFF8EC;
+    --warm-brown: #5C3D2E;
+    --warm-brass: #C4813D;
+    --rust: #A0523D;
+    --smoke: #6B5B4F;
+    --gold: #D4A843;
+    --calcifer-orange: #F27D3B;
+    --calcifer-yellow: #FCC158;
+    --sepia: #A09080;
+    --card-bg: #FFFAF2;
+    --sophie-blue: #7B9BA8;
+  }
+
+  /* Default: day mode */
+  body {
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    background: linear-gradient(180deg, #FFF8EC 0%, #FDF0D5 25%, #FAE3B5 55%, #F5D8A0 100%) fixed;
+    color: var(--warm-brown);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+    transition: background 0.6s ease, color 0.6s ease;
+  }
+
+  /* Night mode */
+  body.night-mode {
+    background: linear-gradient(180deg, #1a1520 0%, #2a1f30 30%, #3a2a38 60%, #4a3540 100%) fixed;
+    color: #E8DDD0;
+  }
+  body.night-mode .task-card { background: rgba(26,21,32,0.55) !important; color: #E8DDD0 !important; }
+  body.night-mode .task-title { color: #E8DDD0 !important; }
+  body.night-mode .task-time { color: #B8A898 !important; }
+  body.night-mode .task-detail { color: #B8A898 !important; }
+  body.night-mode .task-cat-tag { color: #B8A898 !important; }
+  body.night-mode .greeting { color: #B8A898 !important; }
+  body.night-mode .date-display { color: #E8DDD0 !important; }
+  body.night-mode .done-section-label { color: #B8A898 !important; }
+  body.night-mode .calcifer-speech { background: #2a1f30; border-color: #FCC158; color: #E8DDD0; }
+  body.night-mode .calcifer-speech::after { border-top-color: #2a1f30; }
+  body.night-mode .dust { background: radial-gradient(circle, rgba(252,193,88,0.3) 0%, rgba(242,125,59,0) 70%) !important; }
+
+  .dust-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: hidden; }
+  .dust { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(242,125,59,0.5) 0%, rgba(252,193,88,0) 70%); animation: dustFloat linear infinite; opacity: 0; }
+  @keyframes dustFloat {
+    0% { transform: translateY(0) translateX(0) scale(0); opacity: 0; }
+    5% { opacity: 0.65; } 20% { opacity: 0.35; } 50% { opacity: 0.12; } 80% { opacity: 0.04; }
+    100% { transform: translateY(-120vh) translateX(60px) scale(1.2); opacity: 0; }
+  }
+
+  .page-wrapper { max-width: 640px; margin: 0 auto; padding: 52px 28px 100px; position: relative; z-index: 1; }
+
+  /* ===== DAY/NIGHT TOGGLE ===== */
+  .mode-toggle { position: fixed; top: 16px; right: 16px; width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--warm-brass); background: var(--card-bg); cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .mode-toggle:hover { transform: scale(1.1); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+  body.night-mode .mode-toggle { background: #2a1f30; border-color: #FCC158; }
+
+  /* ===== HEADER ===== */
+  .header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; padding-bottom: 20px; padding-top: 12px; border-bottom: 2px solid var(--warm-brass); position: relative; }
+  .header::after { content: '🔥'; position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); font-size: 18px; animation: calciferPulse 2s ease-in-out infinite; }
+  @keyframes calciferPulse {
+    0%, 100% { transform: translateX(-50%) scale(1); text-shadow: 0 0 8px rgba(242,125,59,0.3); }
+    50% { transform: translateX(-50%) scale(1.35); text-shadow: 0 0 22px rgba(242,125,59,0.7); }
+  }
+  .header-left { flex: 1; }
+  .greeting { font-family: 'Playfair Display', 'Quicksand', serif; font-size: 15px; font-weight: 500; color: var(--sepia); letter-spacing: 1.5px; margin-bottom: 10px; font-style: italic; }
+  .date-display { font-family: 'Playfair Display', 'Quicksand', serif; font-size: 42px; font-weight: 700; color: var(--warm-brown); line-height: 1.15; letter-spacing: -0.5px; }
+  .date-weekday { font-size: 22px; font-weight: 500; color: var(--warm-brass); margin-left: 10px; letter-spacing: 0; }
+  .progress-ring { position: relative; width: 48px; height: 48px; flex-shrink: 0; margin-bottom: 4px; }
+  .progress-ring svg { transform: rotate(-90deg); width: 48px; height: 48px; }
+  .progress-ring .ring-bg { fill: none; stroke: rgba(184,117,62,0.2); stroke-width: 3; }
+  .progress-ring .ring-fill { fill: none; stroke: var(--calcifer-orange); stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; filter: drop-shadow(0 0 4px rgba(242,125,59,0.5)); }
+  .progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'Quicksand', sans-serif; font-size: 11px; font-weight: 700; color: var(--warm-brown); }
+
+  /* ===== CALCIFER DISPLAY ===== */
+  .calcifer-area { display: flex; justify-content: center; margin-bottom: 18px; }
+  .calcifer-area .calcifer-box { position: relative; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .calcifer-area .calcifer-box img { width: 90px; height: auto; z-index: 2; transition: filter 0.3s ease; }
+  .calcifer-area .calcifer-box:hover img { filter: brightness(1.5) drop-shadow(0 0 24px rgba(242,125,59,0.7)); }
+  .calcifer-glow { position: absolute; width: 80px; height: 80px; border-radius: 50%; background: radial-gradient(circle, rgba(242,125,59,0.35) 0%, rgba(252,193,88,0.1) 50%, transparent 70%); animation: glowPulse 2s ease-in-out infinite; }
+  @keyframes glowPulse { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.3); opacity: 1; } }
+
+  /* ===== CHARACTER GARDEN ===== */
+  .garden-container { display: flex; justify-content: center; margin-bottom: 22px; flex-wrap: wrap; gap: 6px; min-height: 50px; position: relative; }
+  .garden-container .char-wrapper { display: inline-flex; align-items: flex-end; justify-content: center; }
+  .garden-container .char-wrapper img { width: auto; height: 70px; object-fit: contain; display: block; }
+  .garden-container .char-wrapper.soot img { height: 32px; opacity: 0.7; }
+  .garden-container .char-wrapper.char-spawn { animation: charBounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+  .garden-container .char-wrapper.char-remove { animation: charFadeOut 0.35s ease-in forwards; }
+  @keyframes charBounceIn {
+    0% { transform: scale(0) translateY(-60px); opacity: 0; }
+    60% { transform: scale(1.15) translateY(4px); opacity: 1; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  @keyframes charFadeOut { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0.2); opacity: 0; } }
+
+  /* ===== LEGEND ===== */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+  .legend-item { padding: 6px 13px; border-radius: 20px; font-size: 13px; font-weight: 500; letter-spacing: 0.3px; color: var(--sepia); background: rgba(245,230,208,0.6); cursor: pointer; transition: all 0.25s ease; user-select: none; border: 1.5px solid transparent; backdrop-filter: blur(4px); }
+  .legend-item:hover { border-color: var(--warm-brass); }
+  .legend-item.active { color: white; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .legend-item.active[data-filter="research"] { background: var(--warm-brown); }
+  .legend-item.active[data-filter="sport"]    { background: var(--rust); }
+  .legend-item.active[data-filter="hobby"]    { background: var(--warm-brass); }
+  .legend-item.active[data-filter="chore"]    { background: var(--smoke); }
+  .legend-item.active[data-filter="errand"]   { background: var(--sophie-blue); }
+  .legend-item.dimmed { opacity: 0.4; }
+  .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; margin-top: -2px; }
+
+  /* ===== TASK CARDS ===== */
+  .task-list { display: flex; flex-direction: column; gap: 10px; }
+  .task-card { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; border-radius: 12px; border-left: 4px solid; background: rgba(255,250,242,0.8); backdrop-filter: blur(8px); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.35s ease; position: relative; overflow: hidden; }
+  .task-card:hover { box-shadow: 0 3px 14px rgba(0,0,0,0.06); transform: translateY(-1px); }
+  .task-card.animating-out { opacity: 0; transform: translateY(-12px); }
+  .task-card.done { opacity: 0.55; background: rgba(245,230,208,0.5); border-left-color: var(--sepia) !important; }
+  .task-card.done:hover { box-shadow: none; }
+  .task-card.filtered-out { display: none; }
+  .task-card[data-cat="research"] { border-left-color: var(--warm-brown); }
+  .task-card[data-cat="sport"]    { border-left-color: var(--rust); }
+  .task-card[data-cat="hobby"]    { border-left-color: var(--warm-brass); }
+  .task-card[data-cat="chore"]    { border-left-color: var(--smoke); }
+  .task-card[data-cat="errand"]   { border-left-color: var(--sophie-blue); }
+
+  .check-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--sepia); background: white; cursor: pointer; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: all 0.25s ease; }
+  .check-btn:hover { transform: scale(1.15); box-shadow: 0 0 0 4px rgba(212,168,67,0.12); }
+  .check-btn:active { transform: scale(0.9); }
+  .check-btn .checkmark { opacity: 0; transform: scale(0); transition: all 0.2s ease; stroke: white; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+  .task-card.done .check-btn { border-color: var(--sepia); background: var(--sepia); }
+  .task-card.done .check-btn .checkmark,
+  [data-cat="research"].done .check-btn,
+  [data-cat="sport"].done    .check-btn,
+  [data-cat="hobby"].done    .check-btn,
+  [data-cat="chore"].done    .check-btn,
+  [data-cat="errand"].done   .check-btn { border-color: var(--warm-brown); background: var(--warm-brown); }
+  .task-card.done .check-btn .checkmark { opacity: 1; transform: scale(1); }
+
+  .task-content { flex: 1; min-width: 0; }
+  .task-time { font-size: 12px; font-weight: 500; color: var(--sepia); margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+  .task-title { font-size: 15px; font-weight: 500; line-height: 1.5; color: var(--warm-brown); transition: color 0.3s ease; }
+  .task-detail { font-size: 12px; color: var(--sepia); margin-top: 4px; line-height: 1.5; font-style: italic; }
+  [contenteditable] { outline: none; border-radius: 3px; transition: background 0.2s ease; cursor: text; }
+  [contenteditable]:focus { background: rgba(212,168,67,0.1); }
+  [contenteditable]:empty::before { content: attr(data-placeholder); color: var(--sepia); opacity: 0.5; pointer-events: none; }
+  .task-cat-tag { font-size: 10px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--sepia); margin-top: 6px; opacity: 0.7; }
+  .done-section-label { font-family: 'Playfair Display', 'Quicksand', serif; font-size: 13px; color: var(--sepia); margin-top: 24px; margin-bottom: 10px; font-style: italic; letter-spacing: 1px; }
+  .add-task-btn { width: 100%; margin-top: 14px; padding: 12px; border: 2px dashed rgba(158,140,122,0.5); border-radius: 10px; background: none; color: var(--sepia); font-size: 14px; cursor: pointer; transition: all 0.2s ease; font-family: inherit; }
+  .add-task-btn:hover { border-color: var(--warm-brass); color: var(--warm-brass); background: rgba(196,129,61,0.04); }
+
+  /* ===== SECRET DOOR ===== */
+  .secret-door { position: fixed; bottom: 20px; right: 20px; width: 64px; height: 64px; border-radius: 50%; background: rgba(212,168,67,0.1); border: 3.5px solid rgba(212,168,67,0.3); cursor: pointer; z-index: 100; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; font-size: 30px; user-select: none; }
+  .secret-door:hover { background: rgba(212,168,67,0.35); border-color: var(--gold); transform: scale(1.08); box-shadow: 0 0 28px rgba(212,168,67,0.22); }
+  .secret-door.spinning { animation: doorSpin 1s ease-in-out; }
+  @keyframes doorSpin { 0%{transform:rotate(0deg) scale(1)} 25%{transform:rotate(90deg) scale(1.15)} 50%{transform:rotate(180deg) scale(1.25)} 75%{transform:rotate(270deg) scale(1.15)} 100%{transform:rotate(360deg) scale(1)} }
+
+  /* ===== SPEECH BUBBLE ===== */
+  .calcifer-speech { position: fixed; bottom: 98px; right: 20px; background: #FFFAF2; border: 2px solid var(--warm-brass); border-radius: 18px; padding: 14px 20px; font-family: 'Playfair Display', serif; font-size: 14px; color: var(--warm-brown); box-shadow: 0 6px 28px rgba(0,0,0,0.14); z-index: 200; opacity: 0; transform: translateY(10px); transition: all 0.4s ease; pointer-events: none; max-width: 280px; font-style: italic; line-height: 1.5; }
+  .calcifer-speech.show { opacity: 1; transform: translateY(0); }
+  .calcifer-speech::after { content: ''; position: absolute; bottom: -10px; right: 22px; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid #FFFAF2; }
+  .calcifer-speech .speaker { font-weight: 700; font-style: normal; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--warm-brass); display: block; margin-bottom: 4px; }
+
+  /* ===== EFFECTS ===== */
+  .sparkle { position: fixed; pointer-events: none; z-index: 300; animation: sparklePop 0.8s ease-out forwards; }
+  @keyframes sparklePop { 0%{transform:scale(0) rotate(0deg);opacity:1} 100%{transform:scale(2.5) rotate(180deg);opacity:0} }
+  .turnip-head-big { position: fixed; bottom: 16px; left: 16px; width: 70px; height: auto; cursor: pointer; z-index: 100; animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+  .turnip-head-big img { width: 70px; height: auto; }
+  @keyframes bounceIn { 0%{transform:scale(0)} 50%{transform:scale(1.25)} 70%{transform:scale(0.92)} 100%{transform:scale(1)} }
+  .flying-castle { position: fixed; top: -10px; right: -140px; font-size: 90px; z-index: 100; animation: castleFly 14s linear forwards; pointer-events: none; }
+  @keyframes castleFly { 0%{transform:translateX(0) translateY(0);opacity:0} 10%{opacity:0.75} 90%{opacity:0.75} 100%{transform:translateX(-110vw) translateY(-50vh);opacity:0} }
+
+  @media (max-width: 480px) {
+    .page-wrapper { padding: 32px 18px 72px; }
+    .date-display { font-size: 32px; } .date-weekday { font-size: 18px; }
+    .task-card { padding: 14px 16px; gap: 12px; }
+    .legend { gap: 6px; } .legend-item { padding: 5px 11px; font-size: 12px; }
+    .garden-container .char-wrapper img { height: 56px; }
+    .garden-container .char-wrapper.soot img { height: 26px; }
+    .secret-door { width: 52px; height: 52px; font-size: 24px; bottom: 12px; right: 12px; }
+    .calcifer-speech { max-width: 230px; bottom: 74px; right: 12px; font-size: 12px; }
+    .mode-toggle { top: 10px; right: 10px; width: 36px; height: 36px; font-size: 17px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="dust-layer" id="dustLayer"></div>
+
+<!-- Day/Night toggle -->
+<button class="mode-toggle" id="modeToggle" title="切换白天/夜间模式" onclick="toggleDayNight()">🌙</button>
+
+<div class="calcifer-speech" id="calciferSpeech"><span class="speaker"></span><span class="msg"></span></div>
+<div class="secret-door" id="secretDoor" title="Howl's secret passage">🚪</div>
+
+<div class="page-wrapper">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="greeting" contenteditable="true" data-field="greeting" data-placeholder="A heart's a heavy burden...">A heart's a heavy burden...</div>
+      <div class="date-display" id="dateDisplay" contenteditable="true" data-field="dateDisplay" data-placeholder="日期"></div>
+    </div>
+    <div class="progress-ring" id="progressRing">
+      <svg viewBox="0 0 56 56">
+        <circle class="ring-bg" cx="28" cy="28" r="24" />
+        <circle class="ring-fill" cx="28" cy="28" r="24" stroke-dasharray="150.8" stroke-dashoffset="150.8" id="ringFill" />
+      </svg>
+      <span class="progress-text" id="progressText">0/0</span>
+    </div>
+  </div>
+
+  <!-- Calcifer - clean floating display -->
+  <div class="calcifer-area">
+    <div class="calcifer-box" id="calciferBox" title="双击我跟我说说话！">
+      <div class="calcifer-glow"></div>
+      <img src="images/calcifer.png" alt="Calcifer" id="calciferImg">
+    </div>
+  </div>
+
+  <!-- Character garden -->
+  <div class="garden-container" id="gardenContainer"></div>
+
+  <div class="legend" id="legend"></div>
+  <div class="task-list" id="taskList"></div>
+  <div class="done-section-label" id="doneSectionLabel"></div>
+  <button class="add-task-btn" id="addBtn" onclick="addTask()">+ 添加任务</button>
+</div>
+
+<script>
+// ===== TASK DATA =====
+const catOrder = ['research','sport','hobby','chore','errand'];
+const catMeta = {
+  research: { label: '魔法研究', main: '#5C3D2E' },
+  sport:    { label: '飞天扫帚', main: '#A0523D' },
+  hobby:    { label: '炼金工坊', main: '#C4813D' },
+  chore:    { label: '城堡维护', main: '#6B5B4F' },
+  errand:   { label: '市集采购', main: '#7B9BA8' },
+};
+
+let tasks = [];
+
+let doneSet = new Set();
+let activeFilter = null;
+let nextId = 100;
+let isNight = false;
+
+// ===== PERSISTENCE =====
+const LS_KEY = 'schedule-ghibli-template';
+
+function saveState() {
+  const data = {
+    doneIds: Array.from(doneSet),
+    charHistory: charHistory, characterCount: characterCount,
+    tasks: tasks, nextId: nextId,
+    isNight: isNight,
+    date: new Date().toDateString(),
+    greeting: document.querySelector('.greeting')?.innerText || '',
+    greetingUserEdited: document.querySelector('.greeting')?.dataset.userEdited || 'false',
+    dateHTML: document.getElementById('dateDisplay')?.innerHTML || '',
+    dateUserEdited: document.getElementById('dateDisplay')?.dataset.userEdited || 'false'
+  };
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (data.date !== new Date().toDateString()) return false;
+    // 模板版：每天从空白开始，只恢复设置
+    isNight = data.isNight || false;
+    if (data.greeting) { const g = document.querySelector('.greeting'); if (g) { g.innerText = data.greeting; g.dataset.userEdited = data.greetingUserEdited || 'true'; } }
+    if (data.dateHTML) { const de = document.getElementById('dateDisplay'); if (de) { de.innerHTML = data.dateHTML; de.dataset.userEdited = data.dateUserEdited || 'true'; } }
+    return true;
+  } catch(e) { return false; }
+}
+
+// ===== DAY/NIGHT MODE =====
+function toggleDayNight() {
+  isNight = !isNight;
+  applyDayNight();
+  saveState();
+}
+
+function applyDayNight() {
+  const btn = document.getElementById('modeToggle');
+  if (isNight) {
+    document.body.classList.add('night-mode');
+    if (btn) btn.textContent = '☀️';
+  } else {
+    document.body.classList.remove('night-mode');
+    if (btn) btn.textContent = '🌙';
+  }
+}
+
+// ===== DATE =====
+function renderDate() {
+  const el = document.getElementById('dateDisplay');
+  if (!el.dataset.userEdited || el.dataset.userEdited === 'false') {
+    const d = new Date();
+    const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+    el.innerHTML = `${d.getMonth()+1}月${d.getDate()}日<span class="date-weekday">${weekdays[d.getDay()]}</span>`;
+  }
+}
+
+function bindHeaderEditEvents() {
+  [document.querySelector('.greeting'), document.getElementById('dateDisplay')].forEach(el => {
+    if (!el) return;
+    el.addEventListener('blur', function() {
+      const text = this.innerText.trim();
+      if (this.classList.contains('greeting') && text) this.dataset.userEdited = 'true';
+      if (this.id === 'dateDisplay') this.dataset.userEdited = text ? 'true' : 'false';
+      saveState();
+    });
+    el.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); } });
+  });
+}
+
+// ===== LEGEND =====
+function renderLegend() {
+  const el = document.getElementById('legend');
+  const catsInUse = catOrder.filter(c => tasks.some(t => t.cat === c));
+  const displayCats = catsInUse.length ? catsInUse : catOrder;
+  el.innerHTML = displayCats.map(cat => `<span class="legend-item" data-filter="${cat}" onclick="toggleFilter('${cat}')"><span class="legend-dot" style="background:${catMeta[cat].main};"></span>${catMeta[cat].label}</span>`).join('');
+  applyFilterStyles();
+}
+function toggleFilter(cat) { activeFilter = activeFilter === cat ? null : cat; applyFilterStyles(); applyFilterToCards(); }
+function applyFilterStyles() {
+  document.querySelectorAll('.legend-item').forEach(el => {
+    el.classList.toggle('active', !!(activeFilter && el.dataset.filter === activeFilter));
+    el.classList.toggle('dimmed', !!(activeFilter && el.dataset.filter !== activeFilter));
+  });
+}
+function applyFilterToCards() {
+  document.querySelectorAll('.task-card').forEach(card => {
+    card.classList.toggle('filtered-out', !!(activeFilter && card.dataset.cat !== activeFilter));
+  });
+}
+
+// ===== CARDS =====
+function cardHTML(task, done) {
+  const d = task.detail || '';
+  const detailBlock = `<div class="task-detail" contenteditable="true" data-field="detail" data-id="${task.id}" data-placeholder="添加备注…">${d}</div>`;
+  return `<div class="task-card ${done ? 'done' : ''}" data-cat="${task.cat}" data-id="${task.id}">
+    <button class="check-btn" onclick="toggleTask(${task.id})" aria-label="${done ? '撤销' : '完成'}">
+      <svg width="12" height="12" viewBox="0 0 12 12"><polyline class="checkmark" points="2.5,6 5,9 10,3" /></svg>
+    </button>
+    <div class="task-content">
+      <div class="task-time" contenteditable="true" data-field="time" data-id="${task.id}">${task.time}</div>
+      <div class="task-title" contenteditable="true" data-field="title" data-id="${task.id}" data-placeholder="任务名称">${task.title}</div>
+      ${detailBlock}<div class="task-cat-tag">${catMeta[task.cat].label}</div>
+    </div></div>`;
+}
+
+function renderAll() {
+  const scrollY = window.scrollY;
+  const pending = tasks.filter(t => !doneSet.has(t.id));
+  const done = tasks.filter(t => doneSet.has(t.id));
+  const container = document.getElementById('taskList');
+  const doneLabel = document.getElementById('doneSectionLabel');
+  let html = pending.map(t => cardHTML(t, false)).join('');
+  if (done.length) { doneLabel.textContent = '✦ 已完成'; html += done.map(t => cardHTML(t, true)).join(''); }
+  else { doneLabel.textContent = ''; }
+  container.innerHTML = html;
+  bindEditableEvents(); applyFilterToCards(); updateProgress();
+  window.scrollTo(0, scrollY);
+}
+
+function toggleTask(id) {
+  const card = document.querySelector(`.task-card[data-id="${id}"]`);
+  if (!card) return;
+  card.classList.add('animating-out');
+  setTimeout(() => {
+    if (doneSet.has(id)) { doneSet.delete(id); removeCharacter(); }
+    else { doneSet.add(id); spawnCharacter(); }
+    saveState(); renderAll(); checkMilestones();
+  }, 320);
+}
+
+function bindEditableEvents() {
+  document.querySelectorAll('[contenteditable]').forEach(el => {
+    el.addEventListener('blur', function() {
+      const id = parseInt(this.dataset.id);
+      const task = tasks.find(t => t.id === id);
+      if (task) { task[this.dataset.field] = this.textContent.trim(); saveState(); }
+    });
+    el.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); } });
+    el.addEventListener('click', function(e) { e.stopPropagation(); });
+  });
+}
+
+function addTask() {
+  const cat = activeFilter || 'errand';
+  const id = nextId++;
+  tasks.push({ id, time: '', title: '', detail: '', cat });
+  saveState(); renderAll();
+  setTimeout(() => { const t = document.querySelector(`.task-card[data-id="${id}"] .task-title`); if (t) t.focus(); }, 50);
+}
+
+function updateProgress() {
+  const total = tasks.length;
+  const done = doneSet.size;
+  const pct = total === 0 ? 0 : done / total;
+  document.getElementById('ringFill').style.strokeDashoffset = 150.8 * (1 - pct);
+  document.getElementById('progressText').textContent = `${done}/${total}`;
+}
+
+// ===== CHARACTERS =====
+// 往 images/ 文件夹放新图后，在这里加一行 { file: 'images/xxx.png', label: '名称' } 即可
+const CHAR_POOL = [
+  { file: 'images/howl.png',         label: '哈尔' },
+  { file: 'images/howl-bird.png',    label: '哈尔(鸟)' },
+  { file: 'images/howl2.png',        label: '哈尔2' },
+  { file: 'images/sophie-young.png', label: '苏菲(年轻)' },
+  { file: 'images/sophie-old.png',   label: '苏菲(老)' },
+  { file: 'images/markl.png',        label: '马鲁克' },
+  { file: 'images/calcifer.png',     label: '卡西法' },
+  { file: 'images/turnip-head.png',  label: '萝卜头' },
+  { file: 'images/turnip-head2.png', label: '萝卜头2' },
+  { file: 'images/heen.png',         label: '因因' },
+  { file: 'images/1.png',            label: '1' },
+  { file: 'images/sis.png',          label: 'sis' },
+  { file: 'images/城堡.png',         label: '城堡' },
+  { file: 'images/lake (2).png',     label: '湖2' },
+  { file: 'images/lake2.png',        label: '湖' },
+];
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+let characterCount = 0;
+let charHistory = [];  // trace of spawned image files for undo
+
+function renderCharacters() {
+  const g = document.getElementById('gardenContainer');
+  if (!g) return;
+  let html = '';
+  for (let i = 0; i < 4; i++) {
+    html += `<span class="char-wrapper soot" title="煤煤精灵 ✨"><img src="images/calcifer.png" style="filter:brightness(0.1) blur(1.5px);width:auto;height:28px;" alt="soot"></span>`;
+  }
+  for (let i = 0; i < characterCount; i++) {
+    const ch = charHistory[i];
+    if (ch) {
+      html += `<span class="char-wrapper" title="${ch.label}"><img src="${ch.file}" alt="${ch.label}"></span>`;
+    }
+  }
+  g.innerHTML = html;
+}
+
+let charPoolRemaining = []; // shuffled copy, refilled when exhausted
+
+function refillPool() {
+  charPoolRemaining = CHAR_POOL.slice();
+  for (let i = charPoolRemaining.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [charPoolRemaining[i], charPoolRemaining[j]] = [charPoolRemaining[j], charPoolRemaining[i]];
+  }
+}
+
+function spawnCharacter() {
+  characterCount++;
+  if (charPoolRemaining.length === 0) refillPool();
+  const ch = charPoolRemaining.pop();
+  charHistory.push(ch);
+  renderCharacters();
+  requestAnimationFrame(() => {
+    const g = document.getElementById('gardenContainer');
+    if (g) { const w = g.querySelectorAll('.char-wrapper:not(.soot)'); const last = w[w.length-1]; if (last) last.classList.add('char-spawn'); }
+  });
+  saveState();
+}
+
+function removeCharacter() {
+  if (characterCount <= 0) return;
+  const g = document.getElementById('gardenContainer');
+  const wrappers = g && g.querySelectorAll('.char-wrapper:not(.soot)');
+  const last = wrappers && wrappers[wrappers.length - 1];
+  let settled = false;
+  function done() { if (settled) return; settled = true; characterCount--; charHistory.pop(); saveState(); renderCharacters(); }
+  const tid = setTimeout(done, 400);
+  if (last) {
+    last.classList.add('char-remove');
+    last.addEventListener('animationend', function h() { last.removeEventListener('animationend', h); clearTimeout(tid); done(); });
+  } else { clearTimeout(tid); done(); }
+}
+
+// ===== FLOATING EMBERS =====
+function initDust() {
+  const layer = document.getElementById('dustLayer');
+  if (!layer) return;
+  for (let i = 0; i < 20; i++) {
+    const d = document.createElement('div'); d.className = 'dust';
+    d.style.cssText = `width:${2+Math.random()*6}px;height:${2+Math.random()*6}px;left:${Math.random()*100}%;top:${60+Math.random()*40}%;animation-duration:${6+Math.random()*16}s;animation-delay:${Math.random()*14}s`;
+    layer.appendChild(d);
+  }
+}
+
+function showSpeech(speaker, message, duration) {
+  const el = document.getElementById('calciferSpeech');
+  el.querySelector('.speaker').textContent = speaker;
+  el.querySelector('.msg').textContent = message;
+  el.classList.add('show');
+  clearTimeout(el._hide);
+  el._hide = setTimeout(() => el.classList.remove('show'), duration || 4000);
+}
+
+// ===== EASTER EGGS =====
+
+// EE1: Secret door
+let doorClicks = 0;
+document.getElementById('secretDoor').addEventListener('click', function() {
+  doorClicks++;
+  this.classList.add('spinning');
+  setTimeout(() => this.classList.remove('spinning'), 1000);
+  const places = [
+    { speaker: '🚪 黑色', msg: '荒野 The Wastes... "Could you show me the way to the moving castle?"' },
+    { speaker: '🚪 蓝色', msg: 'Porthaven 港口！Howl 年轻时住在这里。' },
+    { speaker: '🚪 红色', msg: 'Kingsbury 王都！"That woman terrifies me."' },
+    { speaker: '🚪 绿色', msg: 'Markl 小时候的草地... 流星坠落的地方。' },
+    { speaker: '🚪 花田', msg: 'Howl 的秘密花园。"There you are, sweetheart. Sorry I\'m late."' },
+  ];
+  if (doorClicks % 3 === 0) { const p = places[Math.floor(doorClicks/3)%places.length]; showSpeech(p.speaker, p.msg, 4500); }
+});
+
+// EE2: Double-click Calcifer
+let calciferTapTimer = null;
+document.getElementById('calciferBox').addEventListener('click', function(e) {
+  if (calciferTapTimer) {
+    clearTimeout(calciferTapTimer); calciferTapTimer = null;
+    const quotes = [
+      '🔥 "May all your bacon burn!"',
+      '🔥 "Here\'s another curse for you — may all your bacon burn."',
+      '🔥 "I can\'t stand the fire and gunpowder."',
+      '🔥 "She bullied me! I had no choice!"',
+      '🔥 "Fine, like moving the castle isn\'t hard enough!"',
+    ];
+    showSpeech('Calcifer', pick(quotes), 3500);
+    const img = document.getElementById('calciferImg');
+    if (img) { img.style.filter = 'brightness(1.8) drop-shadow(0 0 30px rgba(242,125,59,0.9))'; setTimeout(() => { if (img) img.style.filter = ''; }, 400); }
+  } else { calciferTapTimer = setTimeout(() => { calciferTapTimer = null; }, 350); }
+});
+
+// EE3: Konami Code
+let konamiBuffer = '';
+document.addEventListener('keydown', function(e) {
+  konamiBuffer += e.key;
+  if (konamiBuffer.length > 60) konamiBuffer = konamiBuffer.slice(-60);
+  if (konamiBuffer.endsWith('ArrowUpArrowUpArrowDownArrowDownArrowLeftArrowRightArrowLeftArrowRightba')) {
+    konamiBuffer = '';
+    document.body.style.background = '#FF6B35';
+    showSpeech('Calcifer', '🔥 "I like your spark!!" SUPER NOVA!', 4000);
+    for (let i = 0; i < 15; i++) setTimeout(() => {
+      const sp = document.createElement('div'); sp.className = 'sparkle'; sp.textContent = '✨';
+      sp.style.cssText = `left:${5+Math.random()*85}%;top:${5+Math.random()*85}%;font-size:${18+Math.random()*40}px`;
+      document.body.appendChild(sp); setTimeout(() => sp.remove(), 900);
+    }, i * 70);
+    setTimeout(() => { document.body.style.background = isNight ? '' : ''; applyDayNight(); }, 3500);
+  }
+});
+
+// EE4: Click character → bounce
+document.getElementById('gardenContainer').addEventListener('click', function(e) {
+  const wrapper = e.target.closest('.char-wrapper:not(.soot)');
+  if (wrapper) {
+    wrapper.style.transition = 'transform 0.25s ease'; wrapper.style.transform = 'translateY(-14px)';
+    showSpeech(wrapper.querySelector('img')?.alt || '?', '✦ 我来城堡做客啦！', 2000);
+    setTimeout(() => { wrapper.style.transform = ''; }, 250);
+  }
+});
+
+// EE5: Flying castle on all-tasks
+let castleSpawned = false;
+function checkFlyingCastle() {
+  if (doneSet.size >= tasks.length && tasks.length > 0 && !castleSpawned) {
+    castleSpawned = true;
+    setTimeout(() => {
+      const c = document.createElement('div'); c.className = 'flying-castle'; c.innerHTML = '🏰';
+      document.body.appendChild(c);
+      showSpeech('Howl', '"There you are, sweetheart. Sorry I\'m late. I was looking everywhere for you."', 5500);
+      setTimeout(() => { c.remove(); castleSpawned = false; }, 17000);
+    }, 2500);
+  }
+}
+
+// ===== MILESTONES =====
+function checkMilestones() {
+  const done = doneSet.size, total = tasks.length;
+  const msgs = {
+    1: { speaker: 'Sophie', msg: '"A heart\'s a heavy burden." —— 第一项完成！' },
+    3: { speaker: 'Calcifer', msg: '"May all your bacon burn!" —— 三项了，卡西法在偷懒。' },
+    5: { speaker: 'Howl', msg: '"I feel terrible... no wait, I feel great! Halfway!"' },
+    7: { speaker: 'Sophie (老)', msg: '"The nice thing about being old is you\'ve got nothing much to lose."' },
+    9: { speaker: 'Howl', msg: '"Now I\'ve got something I want to protect. It\'s you." —— 差最后一项！' },
+  };
+  if (msgs[done]) showSpeech(msgs[done].speaker, msgs[done].msg, 4500);
+  if (done >= total && total > 0) {
+    showSpeech('Howl', '"Wow, Sophie, your hair looks just like starlight. It\'s beautiful." ✨', 5500);
+    const img = document.getElementById('calciferImg');
+    if (img) { img.style.filter = 'brightness(1.6) drop-shadow(0 0 30px rgba(242,125,59,0.9))'; setTimeout(() => { if (img) img.style.filter = ''; }, 4000); }
+    checkFlyingCastle();
+  }
+  if (done >= 5 && !document.getElementById('turnipHeadEl')) {
+    const th = document.createElement('div'); th.id = 'turnipHeadEl'; th.className = 'turnip-head-big';
+    th.innerHTML = '<img src="images/turnip-head.png" alt="Turnip Head">';
+    th.title = 'Take care!';
+    th.onclick = function() {
+      this.style.transition = 'transform 0.5s ease';
+      this.style.transform = this.style.transform === 'rotate(360deg)' ? '' : 'rotate(360deg)';
+      showSpeech('Sophie', '"It was a pleasure meeting you! Take care, Turniphead!"', 4000);
+    };
+    document.body.appendChild(th);
+    setTimeout(() => { if (th.parentNode) th.remove(); }, 25000);
+  }
+}
+
+// ===== INIT =====
+function init() {
+  refillPool();
+  const restored = loadState();
+  renderDate();
+  renderCharacters();
+  renderLegend();
+  renderAll();
+  applyDayNight();
+  bindHeaderEditEvents();
+  initDust();
+  if (!restored) saveState();
+}
+init();
+</script>
+</body>
+</html>
